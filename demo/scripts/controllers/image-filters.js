@@ -22,6 +22,8 @@ angular.module('gitHubApp')
     }
 
     var perceptron = null;
+    var perceptronCluster = null;
+    var perceptronOrientation = null;
 	var index = 0;
 	var color_data = null;
 	var filtered_data = null;
