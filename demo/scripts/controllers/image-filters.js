@@ -18,8 +18,7 @@ angular.module('gitHubApp')
     	$scope.filter = filter;
 
     	if ($scope.filter == "Vignette") {
-    		isVignette = true;
-    		$scope.url = "images/vignette-profile-1" + ".png";
+    		$scope.url = "images/cat_vignette" + Math.floor(Math.random() * 5) + ".png";
     		// $scope.url = "images/cat_vignette" + ".png";
     	}
     	else {
@@ -31,7 +30,6 @@ angular.module('gitHubApp')
 
     var perceptron = null;
     var hopfield = null;
-    var isVignette = false;
     var vignetteColor = null;
 	var index = 0;
 	var color_data = null;
@@ -75,7 +73,7 @@ angular.module('gitHubApp')
 		original_data = getData(document.getElementById('original'));
 
 
-		if (isVignette) {
+		if ($scope.filter == "Vignette") {
 			vignetteColor = null;
 			hopfield = new Architect.Hopfield(25);
 			var vpx = [];
@@ -138,7 +136,7 @@ angular.module('gitHubApp')
 	var iteration = function(){
 		trial++;
 
-		if (trial == 1 && isVignette) {
+		if (trial == 1 && ($scope.filter == "Vignette")) {
 
 			// Build the Red, Blue, and Green hopfield pattern profiles of the vignette
 			// Test if the current pixel is close to vignetteColor, if so push 1, else 0
@@ -163,11 +161,45 @@ angular.module('gitHubApp')
 
 			hopfield.learn([vHopPat0, vHopPat1, vHopPat2]);
 			var hresult = hopfield.feed(rHopPat);
+
+			var isVignetteProfile0 = true;
+			var isVignetteProfile1 = true;
+			var isVignetteProfile2 = true;
+			for (var i = 0; i < hresult.length; i++) {
+				if (hresult[i] != vHopPat0[i]) { isVignetteProfile0 = false; }
+				if (hresult[i] != vHopPat1[i]) { isVignetteProfile1 = false; }
+				if (hresult[i] != vHopPat2[i]) { isVignetteProfile2 = false; }
+			}
+
+
 			console.log("rHopPat:");
 			console.log(rHopPat);
 			// console.log("[" + rHopPat + "]");
 			console.log("hresult:")
 			console.log(hresult);
+
+			// Add the vignette to the output!!!
+			var vignetteColorRGBA = "rgba(" + vignetteColor[0] * 255 + "," + vignetteColor[1] * 255 + "," + vignetteColor[2] * 255 + ", 1)";
+			$('.thumbnail').css("position", "relative");
+			$('#vignette').css("position", "absolute")
+				.css("top", "4px")
+				.css("left", "4px")
+				.css("width", "125px")
+				.css("height", "125px");
+
+			if (isVignetteProfile1) {
+				console.log("v1");
+				$('#vignette').css("background", "radial-gradient(ellipse at center, rgba(255,255,255,0) 0%, " + vignetteColorRGBA + " 100%)");
+			}
+			else if (isVignetteProfile2) {
+				console.log("v2");
+				$('#vignette').css("box-shadow", "inset 0px 0px 10px 5px " + vignetteColorRGBA);
+			}
+			else {
+				console.log("v0");
+				$('#vignette').css("background", "rgba(193, 66, 66, 0.75)");
+			}
+			console.log("done rendering!");
 		}
 
 		else {
@@ -185,8 +217,10 @@ angular.module('gitHubApp')
 				perceptron.activate(px);
 				perceptron.propagate(.12, pixel(filtered_data,0,0));
 			}
+
+			$('#vignette').css("background", "transparent").css("box-shadow", "none");
+			preview();
 		}
-		preview();
 	}
 
 	var pixel = function(data, ox, oy){
