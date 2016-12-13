@@ -16,14 +16,23 @@ angular.module('gitHubApp')
     $scope.disableTrain = false;
     $scope.setFilter = function(filter){
     	$scope.filter = filter;
-    	$scope.url = "images/cat_" + filter.toLowerCase().split(' ').join('_') + ".png";
+
+    	if ($scope.filter == "Vignette") {
+    		isVignette = true;
+    		$scope.url = "images/vignette-profile-1" + ".png";
+    		// $scope.url = "images/cat_vignette" + ".png";
+    	}
+    	else {
+    		$scope.url = "images/cat_" + filter.toLowerCase().split(' ').join('_') + ".png";
+    	}
 
     	$scope.disableTrain = false;
     }
 
     var perceptron = null;
-    var perceptronCluster = null;
-    var perceptronOrientation = null;
+    var hopfield = null;
+    var isVignette = false;
+    var vignetteColor = null;
 	var index = 0;
 	var color_data = null;
 	var filtered_data = null;
@@ -33,6 +42,12 @@ angular.module('gitHubApp')
 	var size = 125 * 125;
 	var trial = 0;
 	var px = null;
+	var vHopPat0 = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+	var vHopPat1 = [1,1,1,1,1,1,1,0,0,1,1,0,0,0,0,1,0,0,0,0,1,1,0,0,1];
+	var vHopPat2 = [1,1,1,1,1,1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0,0];
+	var rHopPat = [];
+	var bHopPat = [];
+	var gHopPat = [];
 
 	canvas = canvas || document.getElementById('canvas-demo3');
     context = context || canvas.getContext('2d');
@@ -59,6 +74,59 @@ angular.module('gitHubApp')
         filtered_data = getData(document.getElementById('output'));
 		original_data = getData(document.getElementById('original'));
 
+
+		if (isVignette) {
+			vignetteColor = null;
+			hopfield = new Architect.Hopfield(25);
+			var vpx = [];
+			var rpx = [];
+			var bpx = [];
+			var gpx = [];
+
+			// Pixels in top row
+			for (index = 0; index < 125; index++) {
+				vpx = pixel(filtered_data, 0, 0);
+				rpx = rpx.concat(vpx[0]);
+				bpx = bpx.concat(vpx[1]);
+				gpx = gpx.concat(vpx[2]);
+			}
+			// Pixels in right column
+			for (index = 125; index < size - 125; index += 125) {
+				vpx = pixel(filtered_data, 0, 0);
+				rpx = rpx.concat(vpx[0]);
+				bpx = bpx.concat(vpx[1]);
+				gpx = gpx.concat(vpx[2]);
+			}
+			// Pixels in left column
+			for (index = 125+1; index < size - 2*125 + 1; index += 125) {
+				vpx = pixel(filtered_data, 0, 0);
+				rpx = rpx.concat(vpx[0]);
+				bpx = bpx.concat(vpx[1]);
+				gpx = gpx.concat(vpx[2]);
+			}
+			// Pixels in bottom row
+			for (index = size - 125+1; index < size; index++) {
+				vpx = pixel(filtered_data, 0, 0);
+				rpx = rpx.concat(vpx[0]);
+				bpx = bpx.concat(vpx[1]);
+				gpx = gpx.concat(vpx[2]);
+			}
+
+			// Get average vignette color by reducing the Red, Blue, and Green pixel arrays
+			vignetteColor = [
+			 	(rpx.reduce(function(acc, cur){ return acc + cur; }, 0)) / rpx.length ,
+				(bpx.reduce(function(acc, cur){ return acc + cur; }, 0)) / bpx.length ,
+				(gpx.reduce(function(acc, cur){ return acc + cur; }, 0)) / gpx.length
+			]
+
+			// // If vignetteColor is mostly black, make it pure black
+			// if ((vignetteColor[0] < 0.15) && (vignetteColor[1] < 0.15) && (vignetteColor[2] < 0.15)) {
+			// 	vignetteColor = [0,0,0];
+			// }
+
+			console.log(vignetteColor);
+		}
+
 		if (!$scope.trainingStarted)
 		{
 			$scope.trainingStarted = true;
@@ -70,19 +138,53 @@ angular.module('gitHubApp')
 	var iteration = function(){
 		trial++;
 
-		for (index = 0; index < size; index+=2)
-		{
-			px = pixel(color_data, 0, 0);
-			px = px.concat(pixel(color_data, -1, -1));
-			px = px.concat(pixel(color_data, 0, -1));
-			px = px.concat(pixel(color_data, 1, -1));
-			px = px.concat(pixel(color_data, -1, 0));
-			px = px.concat(pixel(color_data, 1, 0));
-			px = px.concat(pixel(color_data, -1, 1));
-			px = px.concat(pixel(color_data, 0, 1));
-			px = px.concat(pixel(color_data, 1, 1));
-			perceptron.activate(px);
-			perceptron.propagate(.12, pixel(filtered_data,0,0));
+		if (trial == 1 && isVignette) {
+
+			// Build the Red, Blue, and Green hopfield pattern profiles of the vignette
+			// Test if the current pixel is close to vignetteColor, if so push 1, else 0
+			// Build the profile by testing 5 pixels per row, accross every 10th row
+			var testpx = []
+			var offset = 0;
+			for (index = 0; index < size; index += 25) {
+				testpx.push(index);
+				var ipx = pixel(filtered_data, 0, 0);
+				rHopPat.push((Math.abs(vignetteColor[0] - ipx[0]) <= 0.2)? 1 : 0);
+				bHopPat.push((Math.abs(vignetteColor[0] - ipx[0]) <= 0.2)? 1 : 0);
+				gHopPat.push((Math.abs(vignetteColor[0] - ipx[0]) <= 0.2)? 1 : 0);
+
+				// If we're on the last test pixel in the row,
+				// advance the index so that we skip to the next 5-th row
+				if (((index % 125) + 25) >= 125) {
+					offset++;
+					// Subtract 25 because the for loop will add that in for us!
+					index = 125 * 25 * offset - 25;
+				}
+			}
+
+			hopfield.learn([vHopPat0, vHopPat1, vHopPat2]);
+			var hresult = hopfield.feed(rHopPat);
+			console.log("rHopPat:");
+			console.log(rHopPat);
+			// console.log("[" + rHopPat + "]");
+			console.log("hresult:")
+			console.log(hresult);
+		}
+
+		else {
+			for (index = 0; index < size; index+=2)
+			{
+				px = pixel(color_data, 0, 0);
+				px = px.concat(pixel(color_data, -1, -1));
+				px = px.concat(pixel(color_data, 0, -1));
+				px = px.concat(pixel(color_data, 1, -1));
+				px = px.concat(pixel(color_data, -1, 0));
+				px = px.concat(pixel(color_data, 1, 0));
+				px = px.concat(pixel(color_data, -1, 1));
+				px = px.concat(pixel(color_data, 0, 1));
+				px = px.concat(pixel(color_data, 1, 1));
+				perceptron.activate(px);
+				perceptron.propagate(.12, pixel(filtered_data,0,0));
+			}
 		}
 		preview();
 	}
