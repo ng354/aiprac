@@ -29,6 +29,7 @@ angular.module('gitHubApp')
     }
 
     var perceptron = null;
+    var liquidstate = null;
     var hopfield = null;
     var vignetteColor = null;
 	var index = 0;
@@ -67,7 +68,8 @@ angular.module('gitHubApp')
 
 		trial = 0;
 
-		perceptron = new Architect.Perceptron(27,8,3);
+		perceptron = new Architect.Perceptron(27,8, 4, 3);
+		liquidstate = new Architect.Liquid(27, 8, 3, 4, 4);
         color_data = getData(document.getElementById('input'));
         filtered_data = getData(document.getElementById('output'));
 		original_data = getData(document.getElementById('original'));
@@ -214,8 +216,15 @@ angular.module('gitHubApp')
 				px = px.concat(pixel(color_data, -1, 1));
 				px = px.concat(pixel(color_data, 0, 1));
 				px = px.concat(pixel(color_data, 1, 1));
-				perceptron.activate(px);
-				perceptron.propagate(.12, pixel(filtered_data,0,0));
+
+				if ($scope.filter == "Liquid") {
+					liquidstate.activate(px);
+					liquidstate.propagate(.12, pixel(filtered_data, 0, 0));
+				}
+				else {
+					perceptron.activate(px);
+					perceptron.propagate(.12, pixel(filtered_data,0,0));
+				}
 			}
 
 			$('#vignette').css("background", "transparent").css("box-shadow", "none");
@@ -254,7 +263,15 @@ angular.module('gitHubApp')
 			px = px.concat(pixel(original_data, -1, 1));
 			px = px.concat(pixel(original_data, 0, 1));
 			px = px.concat(pixel(original_data, 1, 1));
-			var rgb = perceptron.activate(px);
+
+			var rgb = null;
+
+			if ($scope.filter == "Liquid") {
+				rgb = liquidstate.activate(px);
+			}
+			else {
+				rgb = perceptron.activate(px);
+			}
 			imageData.data[index * 4] = (rgb[0] )* 255;
 			imageData.data[index * 4 + 1] = (rgb[1] ) * 255;
 			imageData.data[index * 4 + 2] = (rgb[2] ) * 255;
