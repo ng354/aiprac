@@ -68,7 +68,7 @@ angular.module('gitHubApp')
 
 		trial = 0;
 
-		perceptron = new Architect.Perceptron(27,8, 4, 3);
+		perceptron = new Architect.Perceptron(27,8, 3);
 		liquidstate = new Architect.Liquid(27, 8, 3, 4, 4);
         color_data = getData(document.getElementById('input'));
         filtered_data = getData(document.getElementById('output'));
