@@ -18,7 +18,7 @@ angular.module('gitHubApp')
     	$scope.filter = filter;
 
     	if ($scope.filter == "Vignette") {
-    		$scope.url = "images/cat_vignette" + Math.floor(Math.random() * 5) + ".png";
+    		$scope.url = "images/cat_vignette" + (Math.floor(Math.random() * 4) + 1) + ".png";
     		// $scope.url = "images/cat_vignette" + ".png";
     	}
     	else {
